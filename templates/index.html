@@ -559,10 +559,206 @@
             border-color: #999;
             background: #F0EFEA;
         }
+
+        /* --- 移动端适配 --- */
+        @media screen and (max-width: 768px) {
+
+            /* 隐藏左侧边栏 */
+            .sidebar {
+                display: none;
+            }
+
+            /* 主内容区全宽 */
+            .main {
+                margin-left: 0;
+                padding: 16px;
+                width: 100%;
+            }
+
+            /* 单列布局，隐藏右侧边栏 */
+            .content-wrapper {
+                display: block;
+                width: 100%;
+                max-width: 100%;
+            }
+
+            .main-column {
+                width: 100%;
+            }
+
+            .right-sidebar {
+                display: none;
+            }
+
+            /* 标题调整 */
+            .header-section {
+                margin-top: 0;
+                margin-bottom: 24px;
+            }
+
+            .main-title {
+                font-size: 24px;
+            }
+
+            .sub-title {
+                font-size: 14px;
+            }
+
+            /* 卡片调整 */
+            .card {
+                padding: 20px;
+                border-radius: 12px;
+            }
+
+            /* 表单网格单列 */
+            .form-grid {
+                grid-template-columns: 1fr;
+                gap: 16px;
+            }
+
+            /* 股票代码输入区域垂直布局 */
+            .card>.form-group>div[style*="display: flex"] {
+                flex-direction: column !important;
+                gap: 16px !important;
+            }
+
+            .card>.form-group>div[style*="display: flex"]>div[style*="width: 1px"] {
+                display: none !important;
+            }
+
+            /* 按钮调整 */
+            .btn {
+                padding: 12px 16px;
+                font-size: 14px;
+            }
+
+            .btn-primary {
+                width: 100%;
+            }
+
+            /* 复选框组换行 */
+            .checkbox-group {
+                gap: 8px;
+            }
+
+            .chip-content {
+                padding: 6px 12px;
+                font-size: 13px;
+            }
+
+            /* 结果表格横向滚动 */
+            .table-wrapper {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            table {
+                min-width: 600px;
+            }
+
+            /* 结果头部垂直布局 */
+            .results-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 16px;
+            }
+
+            .results-header>div:last-child {
+                width: 100%;
+                flex-wrap: wrap;
+            }
+
+            .results-header .btn {
+                flex: 1;
+                min-width: 80px;
+            }
+
+            /* 输入框调整 */
+            input[type="text"],
+            input[type="date"],
+            select {
+                font-size: 16px;
+                /* 防止iOS自动缩放 */
+            }
+        }
+
+        /* 小屏幕进一步优化 */
+        @media screen and (max-width: 480px) {
+            .main {
+                padding: 12px;
+            }
+
+            .main-title {
+                font-size: 20px;
+            }
+
+            .card {
+                padding: 16px;
+            }
+
+            .card-title {
+                font-size: 16px;
+            }
+        }
+
+        /* 移动端顶部导航 */
+        .mobile-nav {
+            display: none;
+            background: var(--bg-color);
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border-color);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .mobile-nav-tabs {
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .mobile-nav-tabs::-webkit-scrollbar {
+            display: none;
+        }
+
+        .mobile-tab {
+            flex-shrink: 0;
+            padding: 8px 16px;
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            background: #fff;
+            font-size: 14px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        .mobile-tab.active {
+            background: #191919;
+            color: #fff;
+            border-color: #191919;
+        }
+
+        @media screen and (max-width: 768px) {
+            .mobile-nav {
+                display: block;
+            }
+        }
     </style>
 </head>
 
 <body>
+
+    <!-- 移动端顶部导航 -->
+    <div class="mobile-nav">
+        <div class="mobile-nav-tabs">
+            <button class="mobile-tab active" onclick="switchTabMobile('multi', this)">多股搜索</button>
+            <button class="mobile-tab" onclick="switchTabMobile('single', this)">单股检索</button>
+            <button class="mobile-tab" onclick="switchTabMobile('periodic', this)">定期报告</button>
+        </div>
+    </div>
 
     <!-- Sidebar Navigation -->
     <aside class="sidebar">
@@ -910,6 +1106,39 @@
             };
             document.getElementById('page-title').textContent = titles[tabName].t;
             document.getElementById('page-subtitle').textContent = titles[tabName].s;
+
+            // Sync mobile nav
+            document.querySelectorAll('.mobile-tab').forEach(el => el.classList.remove('active'));
+            const mobileBtn = document.querySelector(`.mobile-tab[onclick*="${tabName}"]`);
+            if (mobileBtn) mobileBtn.classList.add('active');
+
+            // Hide Results
+            document.getElementById('results-card').classList.remove('show');
+        }
+
+        // 移动端Tab切换
+        function switchTabMobile(tabName, btnElement) {
+            // Update mobile nav
+            document.querySelectorAll('.mobile-tab').forEach(el => el.classList.remove('active'));
+            btnElement.classList.add('active');
+
+            // Update Panels
+            document.querySelectorAll('.panel').forEach(el => el.classList.remove('active'));
+            document.getElementById('panel-' + tabName).classList.add('active');
+
+            // Update Title
+            const titles = {
+                'multi': { t: '多股报告检索', s: '支持批量输入代码或上传 Excel，高效获取多只股票公告。' },
+                'single': { t: '单股深度检索', s: '针对单一标的进行全时间段、全类型的历史公告挖掘。' },
+                'periodic': { t: '定期报告下载', s: '标准化获取年报、半年报等定期披露文件，支持板块筛选。' }
+            };
+            document.getElementById('page-title').textContent = titles[tabName].t;
+            document.getElementById('page-subtitle').textContent = titles[tabName].s;
+
+            // Sync desktop nav
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+            const desktopBtn = document.querySelector(`.nav-item[onclick*="${tabName}"]`);
+            if (desktopBtn) desktopBtn.classList.add('active');
 
             // Hide Results
             document.getElementById('results-card').classList.remove('show');

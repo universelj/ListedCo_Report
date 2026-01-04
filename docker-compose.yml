@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  listedco:
+    build: .
+    container_name: listedco-report
+    restart: unless-stopped
+    ports:
+      - "5003:5003"
+    volumes:
+      - ./uploads:/app/uploads
+    environment:
+      - TZ=Asia/Shanghai
