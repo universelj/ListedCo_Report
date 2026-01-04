@@ -28,7 +28,7 @@ def get_stock_list():
 
 df_orgid = get_stock_list()
 
-# 报告类型映射（与原版cnifo_data_convert完全一致）
+# 报告类型映射
 REPORT_TYPE_MAP = {
     "年报": 'category_ndbg_szsh',
     "半年报": 'category_bndbg_szsh',
@@ -37,7 +37,7 @@ REPORT_TYPE_MAP = {
     "其他": '',
 }
 
-# 板块映射（与原版完全一致，注意中括号）
+# 板块映射
 PLATE_MAP = {
     '主板[沪]': 'shmb',
     '主板[深]': 'szmb',
@@ -50,7 +50,6 @@ PLATE_MAP = {
 def cnifo_data_convert(fram_dict):
     """
     转换请求参数为cninfo API格式
-    完全复刻原版 listedreport.py 中的 cnifo_data_convert 函数
     """
     global df_orgid
     df_orgid_t = df_orgid
@@ -65,11 +64,15 @@ def cnifo_data_convert(fram_dict):
         search_j = ''
     dict_for_c['searchkey'] = search_j
     
-    # 处理股票代码（与原版完全一致）
+    # 处理股票代码
     stock = dict_for_c.get('stock', [''])
     if stock and stock != ['']:
         new_dict_value_list = []
         for s in stock:
+            # 兼容：如果传入的是str，先转列表
+            if isinstance(s, str):
+                s = s.strip()
+            
             if s in list(df_orgid_t['code']):
                 gssz_stock = list(df_orgid_t['orgId'][df_orgid_t['code'] == s])[0]
                 new_v = f'{s},{gssz_stock}'
@@ -78,7 +81,7 @@ def cnifo_data_convert(fram_dict):
     else:
         dict_for_c['stock'] = ''
     
-    # 处理板块（与原版完全一致）
+    # 处理板块
     plate = dict_for_c.get('plate', [''])
     plate_list = []
     if plate and plate != ['']:
@@ -91,7 +94,7 @@ def cnifo_data_convert(fram_dict):
     else:
         dict_for_c['plate'] = ''
     
-    # 处理报告类型（与原版完全一致）
+    # 处理报告类型
     category = dict_for_c.get('category', [''])
     category_list = []
     if category and category != ['']:
@@ -104,7 +107,7 @@ def cnifo_data_convert(fram_dict):
     else:
         dict_for_c['category'] = ''
     
-    # 构建最终请求数据（与原版完全一致）
+    # 构建最终请求数据
     data = {
         'pageNum': 1,
         'pageSize': 30,
@@ -132,13 +135,12 @@ def index():
 @app.route('/api/check_stock', methods=['POST'])
 def check_stock():
     """
-    验证股票代码（复刻原版code_check1逻辑）
+    验证股票代码
     """
     global df_orgid
     data = request.json
     codes = data.get('codes', '')
     
-    # 处理输入格式（与原版一致：替换空格和中文逗号）
     if isinstance(codes, str):
         codes = codes.replace(' ', '').replace('，', ',')
         codes = [c.strip() for c in codes.split(',') if c.strip()]
@@ -162,7 +164,7 @@ def check_stock():
 @app.route('/api/upload_excel', methods=['POST'])
 def upload_excel():
     """
-    上传Excel文件读取股票代码（复刻原版code_check2逻辑）
+    上传Excel文件读取股票代码
     """
     global df_orgid
     
@@ -179,12 +181,10 @@ def upload_excel():
         return jsonify({'success': False, 'error': '请输入列名'})
     
     try:
-        # 保存文件
         filename = secure_filename(file.filename)
         filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
         file.save(filepath)
         
-        # 读取Excel（与原版一致，指定列为字符串类型）
         df_stock = pd.read_excel(filepath, converters={column_name: str})
         stock_list = list(df_stock[column_name])
         
@@ -198,7 +198,6 @@ def upload_excel():
             else:
                 invalid_codes.append(s)
         
-        # 清理上传文件
         os.remove(filepath)
         
         if invalid_codes:
@@ -220,21 +219,20 @@ def upload_excel():
     except Exception as e:
         return jsonify({'success': False, 'error': f'文件读取失败: {str(e)}'})
 
+# --- UPDATED ROUTES FOR CLAUDE STYLE FRONTEND ---
 
-@app.route('/api/search', methods=['POST'])
+@app.route('/api/search_reports', methods=['POST'])
 def search_reports():
     """
-    搜索公告（支持多关键词OR搜索）
+    搜索公告
     """
     data = request.json
-    mode = data.get('mode', 'single')  # single=单股, periodic=定期, multi=多股
+    mode = data.get('mode', 'single')
     
-    # 构建参数字典（与原版mess_get_dict结构一致）
     stocks = data.get('stocks', [])
     if isinstance(stocks, str):
         stocks = [s.strip() for s in stocks.replace('，', ',').split(',') if s.strip()]
     
-    # 处理关键词 - 支持OR逻辑（包含任一关键词即可）
     keywords = data.get('keywords', '')
     if keywords:
         keywords = keywords.replace('   ', ' ').replace('  ', ' ')
@@ -242,33 +240,27 @@ def search_reports():
     else:
         keyword_list = []
     
-    # 处理报告类型
     categories = data.get('categories', [])
     if not categories:
         if mode == 'periodic':
-            # 定期报告默认全选（与原版一致）
             categories = ['年报', '半年报', '一季度报', '三季度报']
         else:
             categories = ['']
     
-    # 处理时间/年度
     if mode == 'periodic':
-        # 定期报告使用年度（与原版begin_end_time_check一致）
         begin_year = data.get('beginYear', 2024)
         end_year = data.get('endYear', 2024)
         se_date = f'{begin_year}-01-01~{int(end_year)+1}-12-31'
     else:
-        # 单股/多股使用日期
         start_date = data.get('startDate', '2024-01-01')
         end_date = data.get('endDate', '2024-12-31')
         se_date = f'{start_date}~{end_date}'
     
     url = "http://www.cninfo.com.cn/new/hisAnnouncement/query"
     all_announcements = []
-    seen_urls = set()  # 用于去重
+    seen_urls = set()
     
     try:
-        # 如果有多个关键词，分别搜索再合并（OR逻辑）
         search_keywords = keyword_list if keyword_list else ['']
         
         for kw in search_keywords:
@@ -279,8 +271,6 @@ def search_reports():
                 'category': categories,
                 'seDate': se_date,
             }
-            
-            # 转换为API格式
             api_data = cnifo_data_convert(params)
             
             resp = requests.post(url, data=api_data, timeout=30)
@@ -292,19 +282,16 @@ def search_reports():
             if not announcements:
                 continue
             
-            # 计算总页数
             total_pages = (total + 29) // 30
-            
-            # 获取所有页的公告
             if total_pages > 1:
-                for page in range(2, min(total_pages + 1, 20)):  # 限制最多20页避免过长
+                # 限制页数，防止请求过多
+                for page in range(2, min(total_pages + 1, 6)):
                     api_data['pageNum'] = page
                     resp = requests.post(url, data=api_data, timeout=30)
                     page_result = resp.json()
                     page_announcements = page_result.get('announcements', []) or []
                     announcements.extend(page_announcements)
             
-            # 去重合并
             for ann in announcements:
                 ann_url = ann.get('adjunctUrl', '')
                 if ann_url and ann_url not in seen_urls:
@@ -313,7 +300,6 @@ def search_reports():
         
         announcements = all_announcements
         
-        # 定期报告特殊过滤（完全复刻原版begin_request_def中的过滤逻辑）
         if mode == 'periodic':
             begin_year = int(data.get('beginYear', 2024))
             end_year = int(data.get('endYear', 2024))
@@ -322,90 +308,83 @@ def search_reports():
                 ann_title = ann.get('announcementTitle', '')
                 for year in range(begin_year, end_year + 1):
                     year_str = str(year)
-                    # 与原版完全一致的过滤条件
                     if year_str in ann_title and '摘要' not in ann_title and '英文' not in ann_title and '取消' not in ann_title:
                         filtered.append(ann)
                         break
             announcements = filtered
         
-        # 清理公告数据（与原版begin_request_def一致）
         cleaned = []
         for ann in announcements:
             title = ann.get('announcementTitle', '')
-            # 移除HTML标签（与原版一致）
             title = re.sub(r'<[^>]+>', '', title)
             
             cleaned.append({
                 'secCode': ann.get('secCode', ''),
                 'secName': ann.get('secName', ''),
-                'title': title,
-                'url': ann.get('adjunctUrl', ''),
-                'time': ann.get('announcementTime', '')
+                'announcementTitle': title, # Updated Key
+                'adjunctUrl': ann.get('adjunctUrl', ''), # Updated Key
+                'publishDate': ann.get('announcementTime', '') # Updated Key (timestamp)
             })
+        
+        # Sort by date desc
+        cleaned.sort(key=lambda x: x['publishDate'], reverse=True)
         
         return jsonify({
             'success': True,
-            'total': len(cleaned),
-            'totalPages': total_pages,
-            'announcements': cleaned
+            'data': cleaned, # Updated Key: data
+            'total': len(cleaned)
         })
     except Exception as e:
+        print(f"Error: {e}")
         return jsonify({
             'success': False,
             'error': str(e)
         })
 
 
-@app.route('/api/download', methods=['POST'])
+@app.route('/api/download_reports', methods=['POST'])
 def download_reports():
     """
-    下载选中的公告（完全复刻原版begin_request_def的下载逻辑）
+    下载选中的公告
     """
     data = request.json
-    announcements = data.get('announcements', [])
+    reports = data.get('reports', [])
     
-    if not announcements:
+    if not reports:
         return jsonify({'success': False, 'error': '没有选择公告'})
     
-    # 创建内存中的ZIP文件
     memory_file = io.BytesIO()
-    
-    # 非法文件名字符（与原版完全一致）
     illegal_chars = ['<', '>', ':', '"', '/', '\\', '|', '?', '*']
     
     with zipfile.ZipFile(memory_file, 'w', zipfile.ZIP_DEFLATED) as zf:
-        for i, ann in enumerate(announcements):
+        for ann in reports:
             try:
-                ann_url = ann.get('url', '')
+                ann_url = ann.get('adjunctUrl', '')
+                if not ann_url: continue
+                
                 ann_allurl_for_download = f"http://static.cninfo.com.cn/{ann_url}"
                 resp = requests.get(ann_allurl_for_download, timeout=60)
                 
-                # 清理文件名
                 ann_stock = ann.get('secCode', '')
                 ann_stock_name = ann.get('secName', '')
-                ann_title = ann.get('title', '')
+                ann_title = ann.get('announcementTitle', '')
                 
-                # 从URL提取日期（格式如: finalpage/2024-01-15/xxxxx.PDF）
                 ann_date = ''
                 if ann_url:
                     url_parts = ann_url.split('/')
                     if len(url_parts) > 1:
-                        ann_date = url_parts[1]  # 获取日期部分
+                        ann_date = url_parts[1]
                 
-                # 移除HTML标签
                 ann_title = re.sub(r'<[^>]+>', '', ann_title)
-                
-                # 清理非法字符
                 for char in illegal_chars:
                     ann_title = ann_title.replace(char, '')
                     ann_stock_name = ann_stock_name.replace(char, '')
                 
-                # 文件名格式：【日期】股票名称_股票代码_公告标题.pdf
                 file_name = f"【{ann_date}】{ann_stock_name}_{ann_stock}_{ann_title}.pdf"
                 zf.writestr(file_name, resp.content)
                 
             except Exception as e:
-                print(f"下载失败: {ann.get('title', '')}, 错误: {e}")
+                print(f"下载失败: {ann.get('announcementTitle', '')}, 错误: {e}")
     
     memory_file.seek(0)
     
@@ -423,17 +402,15 @@ def export_excel():
     导出搜索结果为Excel
     """
     data = request.json
-    announcements = data.get('announcements', [])
+    reports = data.get('reports', [])
     
-    if not announcements:
+    if not reports:
         return jsonify({'success': False, 'error': '没有数据可导出'})
     
     try:
-        # 构建DataFrame
         rows = []
-        for ann in announcements:
-            # 从URL提取日期
-            ann_url = ann.get('url', '')
+        for ann in reports:
+            ann_url = ann.get('adjunctUrl', '') 
             url_parts = ann_url.split('/') if ann_url else []
             ann_date = url_parts[1] if len(url_parts) > 1 else ''
             
@@ -441,13 +418,12 @@ def export_excel():
                 '股票代码': ann.get('secCode', ''),
                 '股票名称': ann.get('secName', ''),
                 '公告日期': ann_date,
-                '公告标题': ann.get('title', ''),
+                '公告标题': ann.get('announcementTitle', ''),
                 '下载链接': f"http://static.cninfo.com.cn/{ann_url}" if ann_url else ''
             })
         
         df = pd.DataFrame(rows)
         
-        # 创建Excel文件
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine='openpyxl') as writer:
             df.to_excel(writer, index=False, sheet_name='公告列表')
