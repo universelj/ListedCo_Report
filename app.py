@@ -172,21 +172,39 @@ def upload_excel():
         return jsonify({'success': False, 'error': '未选择文件'})
     
     file = request.files['file']
-    column_name = request.form.get('column', '')
+    column_name = request.form.get('column', '股票代码')
     
     if file.filename == '':
         return jsonify({'success': False, 'error': '未选择文件'})
-    
-    if not column_name:
-        return jsonify({'success': False, 'error': '请输入列名'})
     
     try:
         filename = secure_filename(file.filename)
         filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
         file.save(filepath)
         
-        df_stock = pd.read_excel(filepath, converters={column_name: str})
-        stock_list = list(df_stock[column_name])
+        # 先读取Excel看看有哪些列
+        df_stock = pd.read_excel(filepath)
+        
+        # 智能检测列名
+        possible_columns = ['股票代码', '代码', 'code', 'Code', 'CODE', '证券代码']
+        actual_column = None
+        
+        for col in possible_columns:
+            if col in df_stock.columns:
+                actual_column = col
+                break
+        
+        # 如果指定的列名存在，优先使用
+        if column_name in df_stock.columns:
+            actual_column = column_name
+        
+        # 都找不到就用第一列
+        if actual_column is None:
+            actual_column = df_stock.columns[0]
+        
+        # 重新读取，确保股票代码是字符串
+        df_stock = pd.read_excel(filepath, converters={actual_column: str})
+        stock_list = list(df_stock[actual_column])
         
         valid_codes = []
         invalid_codes = []

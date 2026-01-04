@@ -130,8 +130,8 @@
             width: 100%;
             max-width: 1400px;
             display: grid;
-            grid-template-columns: 1fr 300px;
-            /* Main content vs Right Sidebar */
+            grid-template-columns: minmax(0, 1fr) 300px;
+            /* Main content vs Right Sidebar - right sidebar has fixed width */
             gap: 48px;
             align-items: start;
         }
@@ -149,6 +149,8 @@
             gap: 32px;
             padding-top: 100px;
             /* Visual balance with header */
+            width: 300px;
+            flex-shrink: 0;
         }
 
         .header-section {
@@ -425,7 +427,7 @@
 
         /* --- Data Table --- */
         .results-container {
-            margin-top: 40px;
+            margin-top: 24px;
             display: none;
         }
 
@@ -565,8 +567,7 @@
     <!-- Sidebar Navigation -->
     <aside class="sidebar">
         <div class="logo-area">
-            <div class="logo-text">ListedCo.</div>
-            <div style="font-size:12px; color:var(--text-tertiary); margin-top:4px;">报告与公告检索工具</div>
+            <div class="logo-text">上市公司公告检索</div>
         </div>
 
         <nav class="nav-menu">
@@ -595,8 +596,8 @@
 
                 <!-- Header -->
                 <div class="header-section">
-                    <h1 class="main-title" id="page-title">使用 Claude 风格检索公告</h1>
-                    <p class="sub-title" id="page-subtitle">高效获取上市公司年报、半年报及临时公告数据，支持批量处理与自动打包。</p>
+                    <h1 class="main-title" id="page-title">多股报告检索</h1>
+                    <p class="sub-title" id="page-subtitle">支持批量输入代码或上传 Excel，高效获取多只股票公告。</p>
                 </div>
 
                 <!-- Panel: Multi Stock (Default) -->
@@ -627,6 +628,10 @@
                                         <div style="font-size:14px; color:var(--text-primary); font-weight:500;">点击上传
                                             Excel</div>
                                         <div style="font-size:12px; color:var(--text-tertiary);">支持 .xlsx, .xls 格式</div>
+                                    </div>
+                                    <div style="margin-top:8px; text-align:center;">
+                                        <a href="/static/stock_template.xlsx" download
+                                            style="font-size:12px; color:var(--text-tertiary); text-decoration:underline;">下载模板</a>
                                     </div>
                                     <input type="file" id="multi-file" accept=".xlsx,.xls" style="display:none;"
                                         onchange="handleFileSelect('multi')">
@@ -863,12 +868,12 @@
                 </div>
 
                 <div class="helper-card">
-                    <div class="helper-title">更新日志</div>
+                    <div class="helper-title">常见问题</div>
                     <p class="helper-text">
-                        v2.0 (Today)<br>
-                        - 界面重构：Claude 沉浸式风格<br>
-                        - 新增：北交所板块支持<br>
-                        - 新增：智能打包下载与 PDF 自动重命名
+                        <strong>Q: 搜不到公告？</strong><br>
+                        请确认股票代码正确，日期范围内有披露记录。<br><br>
+                        <strong>Q: 下载失败？</strong><br>
+                        请检查网络连接，或稍后重试。
                     </p>
                 </div>
             </aside>
@@ -928,14 +933,9 @@
         function handleFileSelect(mode) {
             const fileInput = document.getElementById(`${mode}-file`);
             if (fileInput.files.length > 0) {
-                const name = fileInput.files[0].name;
-                const col = prompt("请输入 Excel 中股票代码所在的列名（例如：代码、Code、A）：", "代码");
-                if (col) {
-                    document.getElementById(`${mode}-column`).value = col;
-                    uploadExcel(mode);
-                } else {
-                    fileInput.value = ''; // clear
-                }
+                // 默认使用"股票代码"作为列名（与模板一致）
+                document.getElementById(`${mode}-column`).value = '股票代码';
+                uploadExcel(mode);
             }
         }
 
@@ -1064,15 +1064,12 @@
                     return;
                 }
             } else {
-                if ((!confirmedStocks.multi || confirmedStocks.multi.length === 0) && !document.getElementById('multi-stocks').value) {
-                    alert("请先输入股票代码或上传文件");
-                    return;
-                }
-                if ((!confirmedStocks.multi || confirmedStocks.multi.length === 0)) {
-                    const raw = document.getElementById('multi-stocks').value;
-                    params.stocks = raw.split(/[,，]/).map(s => s.trim()).filter(s => s);
-                } else {
+                // multi 模式：股票代码非必填
+                if (confirmedStocks.multi && confirmedStocks.multi.length > 0) {
                     params.stocks = confirmedStocks.multi;
+                } else {
+                    const raw = document.getElementById('multi-stocks').value;
+                    params.stocks = raw ? raw.split(/[,，]/).map(s => s.trim()).filter(s => s) : [];
                 }
 
                 params.keywords = document.getElementById('multi-keywords').value;
